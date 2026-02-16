@@ -1,79 +1,59 @@
+import argparse
 import os
 import time
 
 
-def get_folder_size(path):
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(path):
-        for f in filenames:
-            fp = os.path.join(dirpath, f)
-            if os.path.isfile(fp):
-                total_size += os.path.getsize(fp)
-    return total_size
+def scan_directory(path):
+    results = []
+
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            full_path = os.path.join(root, file)
+            try:
+                size = os.path.getsize(full_path)
+                results.append((file, size))
+            except PermissionError:
+                continue
+
+    return results
 
 
-def list_subfolders(path):
-    return [
-        name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
-    ]
+def sort_results(results, reverse=True):
+    return sorted(results, key=lambda x: x[1], reverse=reverse)
 
 
-def list_files(path, recursive=False):
-    files = []
-    if recursive:
-        for dirpath, dirnames, filenames in os.walk(path):
-            for f in filenames:
-                files.append(os.path.join(dirpath, f))
-    else:
-        for f in os.listdir(path):
-            if os.path.isfile(os.path.join(path, f)):
-                files.append(f)
-    return files
-
-
-def menu():
-    print("\nBIENVENIDO")
-    print("1. Ver tamaño")
-    print("2. Ver subcarpetas")
-    print("2.1 Ver archivos de subcarpetas")
-    print("3. Ver archivos de la carpeta en general")
-    print("4. Salir")
+def show_results(results, top):
+    print("\nTop archivos:\n")
+    for name, size in results[:top]:
+        print(f"{name} -> {size / (1024*1024):.2f} MB")
 
 
 def main():
-    path = input("Ingresa el directorio a analizar: ")
+    parser = argparse.ArgumentParser(description="Analizador de archivos por tamaño")
 
-    if not os.path.exists(path):
-        print("Directorio no existe")
+    parser.add_argument("path", help="Ruta del directorio a Analizar")
+
+    parser.add_argument(
+        "-t",
+        "--top",
+        type=int,
+        default=10,
+        help="Cantidad de archivos a mostar (default=10)",
+    )
+
+    parser.add_argument(
+        "-r", "--reverse", action="store_true", help="Mostrar de menor a mayor tamaño"
+    )
+
+    args = parser.parse_args()
+
+    if not os.path.exits(args.path):
+        print("Ruta no valida.")
         return
 
-    while True:
-        menu()
-        opcion = input("Seleccione opción: ")
-
-        if opcion == "1":
-            size = get_folder_size(path)
-            print(f"Tamaño total: {size / (1024*1024):.2f} MB")
-
-        elif opcion == "2":
-            subfolders = list_subfolders(path)
-            print("Subcarpetas:", subfolders)
-
-        elif opcion == "2.1":
-            files = list_files(path, recursive=True)
-            print("Archivos en subcarpetas:", files)
-
-        elif opcion == "3":
-            files = list_files(path, recursive=False)
-            print("Archivos en la carpeta:", files)
-
-        elif opcion == "4":
-            time.sleep(1)
-            print("Saliendo...")
-            break
-
-        else:
-            print("Opción inválida")
+    results = scan_directory(args.path)
+    sort_results = sort_results(results, reverse=args.reverse)
+    show_results(sorted_results, args.top)
 
 
 if __name__ == "__main__":
